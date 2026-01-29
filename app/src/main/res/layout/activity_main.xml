@@ -90,4 +90,5 @@
         app:menu="@menu/menu"
         app:elevation="10dp"/>
 
+    <include layout="@layout/loading_layout" />
 </FrameLayout>
