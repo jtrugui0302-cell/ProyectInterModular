@@ -23,14 +23,15 @@
 
             <ImageButton
                 android:id="@+id/btn_favorito"
-
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_gravity="top|end"
                 android:layout_margin="16dp"
-                app:tint="@color/white"
-                android:elevation="4dp"
-                android:contentDescription="Añadir a favoritos"/>
+                android:background="@android:color/transparent"
+                android:contentDescription="Añadir a favoritos"
+                android:elevation="8dp"
+                app:srcCompat="@drawable/estrella"
+                app:tint="@color/white" />
 
         </FrameLayout>
 
