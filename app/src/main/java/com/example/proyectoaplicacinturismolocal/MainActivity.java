@@ -5,14 +5,17 @@ import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
+import androidx.fragment.app.Fragment; // Añadido para Fragments
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.bottomnavigation.BottomNavigationView; // Añadido
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -29,6 +32,12 @@ public class MainActivity extends AppCompatActivity {
     private MapView map = null;
     private View loadingLayout;
     private DatabaseConnector dbConnector;
+    private boolean esFavorito = false;
+
+    // Referencias para controlar la visibilidad del contenido
+    private View fragmentContainer;
+    private View searchCard;
+    private View zoomButtons;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +50,11 @@ public class MainActivity extends AppCompatActivity {
         map = findViewById(R.id.map);
         dbConnector = new DatabaseConnector();
 
+        // Inicializar vistas de navegación
+        fragmentContainer = findViewById(R.id.fragment_container);
+        searchCard = findViewById(R.id.search_card);
+        zoomButtons = findViewById(R.id.btn_zoom_in).getParent() instanceof View ? (View) findViewById(R.id.btn_zoom_in).getParent() : null;
+
         if (map != null) {
             map.setTileSource(TileSourceFactory.MAPNIK);
             map.setMultiTouchControls(true);
@@ -51,6 +65,46 @@ public class MainActivity extends AppCompatActivity {
 
         configurarBotonesZoom();
         conectarYObtenerSitios();
+        configurarNavegacion(); // Implementación del menú
+    }
+
+    private void configurarNavegacion() {
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+
+            // Usamos exactamente los IDs de tu archivo menu.xml
+            if (id == R.id.nav_home) {
+                // "Inicio" muestra el mapa y los controles de búsqueda
+                mostrarMapa(true);
+                return true;
+            } else if (id == R.id.favorite_layout) {
+                // "Favoritos" oculta el mapa para mostrar el contenedor de fragmentos
+                mostrarMapa(false);
+                // Aquí cargarías tu lista de favoritos más adelante
+                return true;
+            } else if (id == R.id.nav_profile) {
+                // "Perfil" también oculta el mapa
+                mostrarMapa(false);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void mostrarMapa(boolean visible) {
+        if (visible) {
+            map.setVisibility(View.VISIBLE);
+            searchCard.setVisibility(View.VISIBLE);
+            if (zoomButtons != null) zoomButtons.setVisibility(View.VISIBLE);
+            if (fragmentContainer != null) fragmentContainer.setVisibility(View.GONE);
+        } else {
+            map.setVisibility(View.GONE);
+            searchCard.setVisibility(View.GONE);
+            if (zoomButtons != null) zoomButtons.setVisibility(View.GONE);
+            if (fragmentContainer != null) fragmentContainer.setVisibility(View.VISIBLE);
+        }
     }
 
     private void conectarYObtenerSitios() {
@@ -59,7 +113,6 @@ public class MainActivity extends AppCompatActivity {
         dbConnector.ejecutarConsulta(new DatabaseConnector.DatabaseListener() {
             @Override
             public void onSitioEncontrado(String nombre, double lat, double lon, String desc, String urlImagen) {
-                // Recibimos la URL de la base de datos
                 new Handler(Looper.getMainLooper()).post(() ->
                         crearMarcador(nombre, lat, lon, desc, urlImagen)
                 );
@@ -91,7 +144,6 @@ public class MainActivity extends AppCompatActivity {
         marker.setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.marcador, null));
         marker.setInfoWindow(null);
 
-        // Pasamos la URL al evento de clic
         marker.setOnMarkerClickListener((m, mapView) -> {
             mostrarDetalle(nombre, descripcion, urlImagen);
             return true;
@@ -108,15 +160,29 @@ public class MainActivity extends AppCompatActivity {
         TextView txtTitulo = view.findViewById(R.id.detalle_titulo);
         TextView txtDesc = view.findViewById(R.id.detalle_descripcion);
         ImageView imgDetalle = view.findViewById(R.id.detalle_imagen);
+        ImageButton btnFavorito = view.findViewById(R.id.btn_favorito);
 
         txtTitulo.setText(nombre);
         txtDesc.setText(descripcion);
 
-        // --- CARGAR IMAGEN CON GLIDE ---
+        btnFavorito.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                esFavorito = !esFavorito;
+                if (esFavorito) {
+                    btnFavorito.setImageResource(R.drawable.favorito);
+                    Toast.makeText(MainActivity.this, "Añadido a favoritos", Toast.LENGTH_SHORT).show();
+                } else {
+                    btnFavorito.setImageResource(R.drawable.estrella);
+                    Toast.makeText(MainActivity.this, "Eliminado de favoritos", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         Glide.with(this)
-                .load(urlImagen) // La URL VARCHAR que viene de MySQL
-                .placeholder(android.R.drawable.progress_horizontal) // Mientras descarga
-                .error(android.R.drawable.ic_menu_report_image)     // Si falla la URL
+                .load(urlImagen)
+                .placeholder(android.R.drawable.progress_horizontal)
+                .error(android.R.drawable.ic_menu_report_image)
                 .centerCrop()
                 .into(imgDetalle);
 
@@ -132,14 +198,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume()
-    {
+    protected void onResume() {
         super.onResume();
         if (map != null) map.onResume();
     }
+
     @Override
-    protected void onPause()
-    {
+    protected void onPause() {
         super.onPause();
         if (map != null) map.onPause();
     }
