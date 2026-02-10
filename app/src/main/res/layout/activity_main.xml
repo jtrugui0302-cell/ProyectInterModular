@@ -99,4 +99,10 @@
         app:elevation="10dp"/>
 
     <include layout="@layout/loading_layout" />
+    <include
+        android:id="@+id/favorite_layout"
+        layout="@layout/favoritos"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="56dp" />
 </FrameLayout>

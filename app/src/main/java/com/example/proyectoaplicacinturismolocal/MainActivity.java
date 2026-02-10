@@ -12,10 +12,9 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
-import androidx.fragment.app.Fragment; // Añadido para Fragments
 
 import com.bumptech.glide.Glide;
-import com.google.android.material.bottomnavigation.BottomNavigationView; // Añadido
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -33,8 +32,6 @@ public class MainActivity extends AppCompatActivity {
     private View loadingLayout;
     private DatabaseConnector dbConnector;
     private boolean esFavorito = false;
-
-    // Referencias para controlar la visibilidad del contenido
     private View fragmentContainer;
     private View searchCard;
     private View zoomButtons;
@@ -46,12 +43,21 @@ public class MainActivity extends AppCompatActivity {
         Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
         setContentView(R.layout.activity_main);
 
+        View layoutFavoritos = findViewById(R.id.favorite_layout);
+        View layoutPerfil = findViewById(R.id.profile_layout);
+
+        if (layoutFavoritos != null) {
+            layoutFavoritos.setVisibility(View.GONE);
+        }
+        if (layoutPerfil != null) {
+            layoutPerfil.setVisibility(View.GONE);
+        }
+
         loadingLayout = findViewById(R.id.loadingLayout);
         map = findViewById(R.id.map);
         dbConnector = new DatabaseConnector();
 
         // Inicializar vistas de navegación
-        fragmentContainer = findViewById(R.id.fragment_container);
         searchCard = findViewById(R.id.search_card);
         zoomButtons = findViewById(R.id.btn_zoom_in).getParent() instanceof View ? (View) findViewById(R.id.btn_zoom_in).getParent() : null;
 
@@ -65,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
 
         configurarBotonesZoom();
         conectarYObtenerSitios();
-        configurarNavegacion(); // Implementación del menú
+        configurarNavegacion();
     }
 
     private void configurarNavegacion() {
@@ -74,23 +80,27 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
 
-            // Usamos exactamente los IDs de tu archivo menu.xml
+            ocultarTodo();
+
             if (id == R.id.nav_home) {
-                // "Inicio" muestra el mapa y los controles de búsqueda
-                mostrarMapa(true);
+                mostrarMapa(true); // Tu método que pone el mapa en VISIBLE
                 return true;
-            } else if (id == R.id.favorite_layout) {
-                // "Favoritos" oculta el mapa para mostrar el contenedor de fragmentos
+            }
+            else if (id == R.id.nav_favorites) {
                 mostrarMapa(false);
-                // Aquí cargarías tu lista de favoritos más adelante
+                findViewById(R.id.favorite_layout).setVisibility(View.VISIBLE);
                 return true;
-            } else if (id == R.id.nav_profile) {
-                // "Perfil" también oculta el mapa
+            }
+            else if (id == R.id.nav_profile) {
                 mostrarMapa(false);
                 return true;
             }
             return false;
         });
+    }
+
+    private void ocultarTodo() {
+        findViewById(R.id.favorite_layout).setVisibility(View.GONE);
     }
 
     private void mostrarMapa(boolean visible) {
