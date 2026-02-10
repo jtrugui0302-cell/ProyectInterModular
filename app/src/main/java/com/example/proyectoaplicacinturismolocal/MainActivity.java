@@ -68,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
             map.getController().setZoom(17.0);
             map.getController().setCenter(puntoInicial);
         }
-
+//guardado texto
         configurarBotonesZoom();
         conectarYObtenerSitios();
         configurarNavegacion();
