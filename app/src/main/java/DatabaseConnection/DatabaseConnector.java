@@ -16,7 +16,7 @@ public class DatabaseConnector {
 
     // 1. MODIFICADO: Agregamos String imagenUrl a la interfaz
     public interface DatabaseListener {
-        void onSitioEncontrado(String nombre, double lat, double lon, String desc, String imagenUrl);
+        void onSitioEncontrado(String nombre, double lat, double lon, String desc, String imagenUrl, String tipo);
         void onError(String mensaje);
         void onFinalizado();
     }
@@ -33,16 +33,16 @@ public class DatabaseConnector {
                 st = con.createStatement();
 
                 // 2. MODIFICADO: Añadimos la columna 'imagen' a la consulta SQL
-                rs = st.executeQuery("SELECT nombre, latitud, longitud, descripcion, imagen_url FROM sitios");
+                rs = st.executeQuery("SELECT nombre, latitud, longitud, descripcion, tipo, imagen_url FROM sitios");
 
                 while (rs.next()) {
-                    // 3. MODIFICADO: Extraemos el String de la URL y lo enviamos
                     listener.onSitioEncontrado(
                             rs.getString("nombre"),
                             rs.getDouble("latitud"),
                             rs.getDouble("longitud"),
                             rs.getString("descripcion"),
-                            rs.getString("imagen_url")
+                            rs.getString("imagen_url"),
+                            rs.getString("tipo")
                     );
                 }
 
