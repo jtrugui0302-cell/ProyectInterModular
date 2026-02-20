@@ -175,11 +175,19 @@ public class MainActivity extends AppCompatActivity {
 
         TextView txtTitulo = view.findViewById(R.id.detalle_titulo);
         TextView txtDesc = view.findViewById(R.id.detalle_descripcion);
+
+        // 1. Buscamos el TextView de la categoría
+        TextView txtCategoria = view.findViewById(R.id.detalle_categoria);
+
         ImageView imgDetalle = view.findViewById(R.id.detalle_imagen);
         ImageButton btnFavorito = view.findViewById(R.id.btn_favorito);
 
         txtTitulo.setText(sitioSeleccionado.getNombre());
         txtDesc.setText(sitioSeleccionado.getDescripcion());
+
+        // 2. Aquí concatenamos el prefijo con el dato real
+        txtCategoria.setText("Categoría: " + sitioSeleccionado.getTipo());
+
         Glide.with(this).load(sitioSeleccionado.getUrlImagen()).into(imgDetalle);
 
         actualizarIconoFavorito(btnFavorito, sitioSeleccionado);

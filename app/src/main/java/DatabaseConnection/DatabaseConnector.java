@@ -8,9 +8,9 @@ import java.sql.Statement;
 
 public class DatabaseConnector {
 
-    private static final String IP_SERVIDOR = "192.168.0.158";
+    private static final String IP_SERVIDOR = "192.168.0.65";
     private static final String DB_NAME = "rutas_turisticas";
-    private static final String URL = "jdbc:mysql://" + IP_SERVIDOR + ":3306/" + DB_NAME + "?useSSL=false";
+    private static final String URL = "jdbc:mysql://" + IP_SERVIDOR + ":33065/" + DB_NAME + "?useSSL=false";
     private static final String USER = "admin";
     private static final String PASS = "nocturno";
 
