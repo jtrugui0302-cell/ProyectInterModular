@@ -1,6 +1,8 @@
 package com.example.proyectoaplicacinturismolocal;
 
 import android.Manifest;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -24,6 +26,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.example.proyectoaplicacinturismolocal.LoginResources.LoginActivity;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
@@ -63,9 +66,10 @@ public class MainActivity extends AppCompatActivity {
     private Polyline rutaActual;
     private MyLocationNewOverlay myLocationOverlay;
 
-    // --- VARIABLES PARA UBICACIÓN MANUAL ---
+    // --- VARIABLES PARA UBICACIÓN MANUAL Y ESTADO DE NAVEGACIÓN ---
     private GeoPoint puntoManual = null;
     private Marker marcadorManual = null;
+    private Sitio sitioEnNavegacion = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
         Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
         setContentView(R.layout.activity_main);
 
+        // Solicitar permisos de GPS
         solicitarPermisos();
 
         loadingLayout = findViewById(R.id.loadingLayout);
@@ -83,17 +88,14 @@ public class MainActivity extends AppCompatActivity {
         dbConnector = new DatabaseConnector();
         editTextSearch = findViewById(R.id.edit_text_search);
 
+        // Configurar buscador
         editTextSearch.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filtrarSitios(s.toString());
-            }
-            @Override
-            public void afterTextChanged(Editable s) {}
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filtrarSitios(s.toString()); }
+            @Override public void afterTextChanged(Editable s) {}
         });
 
+        // Configurar Favoritos
         recyclerView = findViewById(R.id.recycler_view_favoritos);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new FavoritosAdapter(listaFavoritos, posicion -> {
@@ -104,11 +106,11 @@ public class MainActivity extends AppCompatActivity {
                 actualizarEstadoLista();
             }
         });
-
         recyclerView.setAdapter(adapter);
 
         findViewById(R.id.favorite_layout).setVisibility(View.GONE);
 
+        // Configurar Mapa
         if (map != null) {
             map.setTileSource(TileSourceFactory.MAPNIK);
             map.setMultiTouchControls(true);
@@ -116,12 +118,12 @@ public class MainActivity extends AppCompatActivity {
             map.getController().setZoom(17.0);
             map.getController().setCenter(puntoInicial);
 
-            // Ubicación automática (Punto azul)
+            // Capa de ubicación GPS real
             myLocationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(this), map);
             myLocationOverlay.enableMyLocation();
             map.getOverlays().add(myLocationOverlay);
 
-            // --- CONFIGURACIÓN DE PULSACIÓN LARGA PARA UBICACIÓN MANUAL ---
+            // Capa para detectar pulsación larga (Ubicación manual)
             configurarPulsacionLarga();
         }
 
@@ -133,40 +135,22 @@ public class MainActivity extends AppCompatActivity {
 
     private void configurarPulsacionLarga() {
         MapEventsReceiver mReceive = new MapEventsReceiver() {
-            @Override
-            public boolean singleTapConfirmedHelper(GeoPoint p) {
-                return false;
-            }
-
-            @Override
-            public boolean longPressHelper(GeoPoint p) {
-                // Al mantener pulsado, establecemos el punto manual
+            @Override public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
+            @Override public boolean longPressHelper(GeoPoint p) {
                 puntoManual = p;
-
-                // Si ya había un marcador manual, lo quitamos
-                if (marcadorManual != null) {
-                    map.getOverlays().remove(marcadorManual);
-                }
-
-                // Creamos un marcador para indicar visualmente dónde hemos marcado "Nuestra posición"
+                if (marcadorManual != null) { map.getOverlays().remove(marcadorManual); }
                 marcadorManual = new Marker(map);
                 marcadorManual.setPosition(p);
                 marcadorManual.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-                marcadorManual.setTitle("Mi ubicación seleccionada");
-                // Usamos el icono ic_menu_mylocation del sistema o uno personalizado
+                marcadorManual.setTitle("Mi ubicación manual");
                 marcadorManual.setIcon(ResourcesCompat.getDrawable(getResources(), android.R.drawable.ic_menu_mylocation, null));
-
                 map.getOverlays().add(marcadorManual);
-                map.invalidate(); // Refrescar el mapa
-
-                Toast.makeText(MainActivity.this, "Posición de origen fijada manualmente", Toast.LENGTH_SHORT).show();
+                map.invalidate();
+                Toast.makeText(MainActivity.this, "Punto de origen fijado", Toast.LENGTH_SHORT).show();
                 return true;
             }
         };
-
-        // Añadimos el overlay de eventos al mapa
-        MapEventsOverlay eventsOverlay = new MapEventsOverlay(mReceive);
-        map.getOverlays().add(eventsOverlay);
+        map.getOverlays().add(new MapEventsOverlay(mReceive));
     }
 
     private void solicitarPermisos() {
@@ -180,12 +164,11 @@ public class MainActivity extends AppCompatActivity {
         String query = texto.toLowerCase();
         map.getOverlays().clear();
 
-        // Volver a añadir overlays permanentes
+        // Re-añadir capas permanentes para que no desaparezcan al buscar
         if (myLocationOverlay != null) map.getOverlays().add(myLocationOverlay);
         if (marcadorManual != null) map.getOverlays().add(marcadorManual);
-        configurarPulsacionLarga(); // Re-añadir el detector de pulsaciones
-
-        rutaActual = null;
+        if (rutaActual != null) map.getOverlays().add(rutaActual);
+        configurarPulsacionLarga();
 
         for (Sitio s : listaSitiosCompleta) {
             if (s.getNombre().toLowerCase().contains(query) || (s.getTipo() != null && s.getTipo().toLowerCase().contains(query))) {
@@ -199,22 +182,14 @@ public class MainActivity extends AppCompatActivity {
         loadingLayout.setVisibility(View.VISIBLE);
         listaSitiosCompleta.clear();
         dbConnector.ejecutarConsulta(new DatabaseConnector.DatabaseListener() {
-            @Override
-            public void onSitioEncontrado(String nombre, double lat, double lon, String desc, String urlImagen, String tipo) {
+            @Override public void onSitioEncontrado(String nombre, double lat, double lon, String desc, String urlImagen, String tipo) {
                 Sitio sitio = new Sitio(nombre, desc, urlImagen, tipo);
-                sitio.setLatitud(lat);
-                sitio.setLongitud(lon);
+                sitio.setLatitud(lat); sitio.setLongitud(lon);
                 listaSitiosCompleta.add(sitio);
                 new Handler(Looper.getMainLooper()).post(() -> crearMarcador(nombre, lat, lon, desc, urlImagen, tipo));
             }
-            @Override
-            public void onError(String mensaje) {
-                new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(MainActivity.this, "Error DB: " + mensaje, Toast.LENGTH_SHORT).show());
-            }
-            @Override
-            public void onFinalizado() {
-                new Handler(Looper.getMainLooper()).post(() -> loadingLayout.setVisibility(View.GONE));
-            }
+            @Override public void onError(String mensaje) { new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(MainActivity.this, "Error DB: " + mensaje, Toast.LENGTH_SHORT).show()); }
+            @Override public void onFinalizado() { new Handler(Looper.getMainLooper()).post(() -> loadingLayout.setVisibility(View.GONE)); }
         });
     }
 
@@ -225,8 +200,7 @@ public class MainActivity extends AppCompatActivity {
         marker.setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.marcador, null));
         marker.setOnMarkerClickListener((m, mapView) -> {
             Sitio s = new Sitio(nombre, descripcion, urlImagen, tipo);
-            s.setLatitud(lat);
-            s.setLongitud(lon);
+            s.setLatitud(lat); s.setLongitud(lon);
             mostrarDetalle(s);
             return true;
         });
@@ -251,30 +225,37 @@ public class MainActivity extends AppCompatActivity {
         txtCategoria.setText("Categoría: " + sitioSeleccionado.getTipo());
         Glide.with(this).load(sitioSeleccionado.getUrlImagen()).into(imgDetalle);
 
-        btnNavegar.setOnClickListener(v -> {
-            GeoPoint destino = new GeoPoint(sitioSeleccionado.getLatitud(), sitioSeleccionado.getLongitud());
+        // LÓGICA BOTÓN NAVEGAR (Toggle inteligente)
+        if (sitioEnNavegacion != null && sitioEnNavegacion.getNombre().equals(sitioSeleccionado.getNombre())) {
+            btnNavegar.setText("Detener navegación");
+            btnNavegar.setOnClickListener(v -> {
+                if (rutaActual != null) { map.getOverlays().remove(rutaActual); rutaActual = null; sitioEnNavegacion = null; map.invalidate(); }
+                dialog.dismiss();
+            });
+        } else {
+            btnNavegar.setText("Navegar");
+            btnNavegar.setOnClickListener(v -> {
+                GeoPoint destino = new GeoPoint(sitioSeleccionado.getLatitud(), sitioSeleccionado.getLongitud());
+                GeoPoint origen = (puntoManual != null) ? puntoManual : (myLocationOverlay.getMyLocation() != null) ? myLocationOverlay.getMyLocation() : (GeoPoint) map.getMapCenter();
+                sitioEnNavegacion = sitioSeleccionado;
+                trazarRuta(origen, destino);
+                dialog.dismiss();
+            });
+        }
 
-            // PRIORIDAD DE ORIGEN:
-            // 1. Ubicación manual (Pulsación larga)
-            // 2. Ubicación GPS real (Punto azul)
-            // 3. Centro del mapa (Respaldo)
-            GeoPoint origen;
-            if (puntoManual != null) {
-                origen = puntoManual;
-                Toast.makeText(this, "Navegando desde ubicación manual", Toast.LENGTH_SHORT).show();
-            } else if (myLocationOverlay != null && myLocationOverlay.getMyLocation() != null) {
-                origen = myLocationOverlay.getMyLocation();
-                Toast.makeText(this, "Navegando desde GPS", Toast.LENGTH_SHORT).show();
+        // LÓGICA BOTÓN COMENTARIO (Verificación de sesión)
+        btnComentario.setOnClickListener(v -> {
+            SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
+            if (prefs.getInt("userId", -1) == -1) {
+                Toast.makeText(this, "Inicia sesión para comentar", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, LoginActivity.class));
             } else {
-                origen = (GeoPoint) map.getMapCenter();
+                Toast.makeText(this, "Panel de comentarios de: " + prefs.getString("userName", ""), Toast.LENGTH_SHORT).show();
+                // Aquí podrías inflar un diálogo para escribir comentarios
             }
-
-            trazarRuta(origen, destino);
-            dialog.dismiss();
         });
 
-        btnComentario.setOnClickListener(v -> Toast.makeText(this, "Función de comentarios", Toast.LENGTH_SHORT).show());
-
+        // LÓGICA FAVORITOS
         actualizarIconoFavorito(btnFavorito, sitioSeleccionado);
         btnFavorito.setOnClickListener(v -> {
             if (!estaEnFavoritos(sitioSeleccionado)) { listaFavoritos.add(sitioSeleccionado); }
@@ -291,12 +272,10 @@ public class MainActivity extends AppCompatActivity {
     private void trazarRuta(GeoPoint origen, GeoPoint destino) {
         new Thread(() -> {
             OSRMRoadManager roadManager = new OSRMRoadManager(this, getPackageName());
-            roadManager.setMean(OSRMRoadManager.MEAN_BY_FOOT);
+            roadManager.setMean(OSRMRoadManager.MEAN_BY_FOOT); // Modo Pie
 
             ArrayList<GeoPoint> waypoints = new ArrayList<>();
-            waypoints.add(origen);
-            waypoints.add(destino);
-
+            waypoints.add(origen); waypoints.add(destino);
             Road road = roadManager.getRoad(waypoints);
 
             new Handler(Looper.getMainLooper()).post(() -> {
@@ -324,36 +303,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void ocultarTodo() { findViewById(R.id.favorite_layout).setVisibility(View.GONE); }
-
-    private void mostrarMapa(boolean visible) {
-        int vis = visible ? View.VISIBLE : View.GONE;
-        map.setVisibility(vis);
-        searchCard.setVisibility(vis);
-        View zoomContainer = findViewById(R.id.btn_zoom_in).getParent() instanceof View ? (View) findViewById(R.id.btn_zoom_in).getParent() : null;
-        if (zoomContainer != null) zoomContainer.setVisibility(vis);
+    private void mostrarMapa(boolean v) {
+        int vis = v ? View.VISIBLE : View.GONE;
+        map.setVisibility(vis); searchCard.setVisibility(vis);
+        View zoom = findViewById(R.id.btn_zoom_in).getParent() instanceof View ? (View) findViewById(R.id.btn_zoom_in).getParent() : null;
+        if (zoom != null) zoom.setVisibility(vis);
     }
-
-    private boolean estaEnFavoritos(Sitio sitio) {
-        for (Sitio s : listaFavoritos) { if (s.getNombre().equals(sitio.getNombre())) return true; }
-        return false;
-    }
-
-    private void removerDeFavoritos(Sitio sitio) { listaFavoritos.removeIf(s -> s.getNombre().equals(sitio.getNombre())); }
-
-    private void actualizarIconoFavorito(ImageButton btn, Sitio sitio) {
-        btn.setImageResource(estaEnFavoritos(sitio) ? R.drawable.favorito : R.drawable.estrella);
-    }
-
-    private void actualizarEstadoLista() {
-        boolean vacia = listaFavoritos.isEmpty();
-        txtVacio.setVisibility(vacia ? View.VISIBLE : View.GONE);
-        recyclerView.setVisibility(vacia ? View.GONE : View.VISIBLE);
-    }
-
-    private void configurarBotonesZoom() {
-        findViewById(R.id.btn_zoom_in).setOnClickListener(v -> map.getController().zoomIn());
-        findViewById(R.id.btn_zoom_out).setOnClickListener(v -> map.getController().zoomOut());
-    }
+    private boolean estaEnFavoritos(Sitio s) { for (Sitio f : listaFavoritos) { if (f.getNombre().equals(s.getNombre())) return true; } return false; }
+    private void removerDeFavoritos(Sitio s) { listaFavoritos.removeIf(f -> f.getNombre().equals(s.getNombre())); }
+    private void actualizarIconoFavorito(ImageButton b, Sitio s) { b.setImageResource(estaEnFavoritos(s) ? R.drawable.favorito : R.drawable.estrella); }
+    private void actualizarEstadoLista() { boolean v = listaFavoritos.isEmpty(); txtVacio.setVisibility(v ? View.VISIBLE : View.GONE); recyclerView.setVisibility(v ? View.GONE : View.VISIBLE); }
+    private void configurarBotonesZoom() { findViewById(R.id.btn_zoom_in).setOnClickListener(v -> map.getController().zoomIn()); findViewById(R.id.btn_zoom_out).setOnClickListener(v -> map.getController().zoomOut()); }
 
     @Override protected void onResume() {
         super.onResume();

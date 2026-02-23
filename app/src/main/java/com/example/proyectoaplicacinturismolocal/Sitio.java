@@ -1,13 +1,12 @@
 package com.example.proyectoaplicacinturismolocal;
 
-// Clase para representar un lugar de la base de datos
 public class Sitio {
     private String nombre;
     private String descripcion;
     private String urlImagen;
     private double latitud;
     private double longitud;
-    private String tipo; // <--- NUEVO CAMPO
+    private String tipo;
 
     public Sitio(String nombre, String descripcion, String urlImagen, String tipo) {
         this.nombre = nombre;
