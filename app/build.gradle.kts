@@ -56,6 +56,8 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("com.github.MKergall:osmbonuspack:6.9.0")
 
+    implementation("androidx.preference:preference:1.2.1")
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

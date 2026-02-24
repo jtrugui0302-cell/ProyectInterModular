@@ -1,4 +1,4 @@
-package com.example.proyectoaplicacinturismolocal;
+package com.example.proyectoaplicacinturismolocal.Adapters;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +9,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.example.proyectoaplicacinturismolocal.Models.Sitio;
+import com.example.proyectoaplicacinturismolocal.R;
+
 import java.util.List;
 
 public class FavoritosAdapter extends RecyclerView.Adapter<FavoritosAdapter.ViewHolder> {
