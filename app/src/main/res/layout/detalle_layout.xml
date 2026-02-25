@@ -30,7 +30,6 @@
                 android:contentDescription="Añadir a favoritos"
                 android:scaleType="fitCenter"
                 android:background="?attr/selectableItemBackgroundBorderless"
-
                 app:srcCompat="@drawable/estrella"/>
 
         </FrameLayout>
@@ -58,7 +57,11 @@
                 android:textColor="?attr/colorPrimary"
                 android:layout_marginBottom="16dp"/>
 
-            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E0E0E0" android:layout_marginBottom="16dp"/>
+            <View
+                android:layout_width="match_parent"
+                android:background="#E0E0E0"
+                android:layout_marginBottom="16dp"
+                android:layout_height="1dp"/>
 
             <TextView
                 android:layout_width="match_parent"
@@ -72,7 +75,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Aquí va la descripción detallada obtenida de la API REST. Incluye datos de interés, historia y relevancia turística del lugar."
+                android:text="Descripción detallada del lugar."
                 android:textSize="16sp"/>
 
             <LinearLayout
@@ -83,12 +86,12 @@
                 android:gravity="center_vertical">
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_horarios"
+                    android:id="@+id/btn_comentario"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginEnd="8dp"
-                    android:text="Ver Horarios"
+                    android:text="Dejar comentario"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
 
                 <com.google.android.material.button.MaterialButton
