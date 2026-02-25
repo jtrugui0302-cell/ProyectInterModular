@@ -28,6 +28,7 @@ import com.example.proyectoaplicacinturismolocal.Models.Comentarios;
 import com.example.proyectoaplicacinturismolocal.Models.Sitio;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
@@ -54,13 +55,17 @@ public class MainActivity extends AppCompatActivity {
     private MapView map = null;
     private DatabaseConnector dbConnector;
     private FrameLayout fragmentContainer;
+    private View searchCard, favoriteLayout;
     private List<Sitio> listaSitiosCompleta = new ArrayList<>();
     private List<Sitio> listaFavoritos = new ArrayList<>();
     private FavoritosAdapter favAdapter;
+    private RecyclerView rvFav;
     private MyLocationNewOverlay myLocationOverlay;
     private Polyline rutaActual;
+    private Sitio sitioEnNavegacion = null;
     private GeoPoint puntoManual = null;
     private Marker marcadorManual = null;
+    private int currentTabId = R.id.nav_home;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,9 +76,12 @@ public class MainActivity extends AppCompatActivity {
         solicitarPermisos();
         map = findViewById(R.id.map);
         fragmentContainer = findViewById(R.id.fragment_container);
+        searchCard = findViewById(R.id.search_card);
+        favoriteLayout = findViewById(R.id.favorite_layout);
         dbConnector = new DatabaseConnector();
 
-        // Buscador
+        gestionarVisibilidad(R.id.nav_home);
+
         EditText searchEdit = findViewById(R.id.edit_text_search);
         searchEdit.addTextChangedListener(new TextWatcher() {
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filtrarSitios(s.toString()); }
@@ -81,8 +89,7 @@ public class MainActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // RecyclerView Favoritos
-        RecyclerView rvFav = findViewById(R.id.recycler_view_favoritos);
+        rvFav = findViewById(R.id.recycler_view_favoritos);
         rvFav.setLayoutManager(new LinearLayoutManager(this));
         favAdapter = new FavoritosAdapter(listaFavoritos, pos -> {
             listaFavoritos.remove(pos); favAdapter.notifyDataSetChanged();
@@ -101,29 +108,53 @@ public class MainActivity extends AppCompatActivity {
             configurarPulsacionLarga();
         }
 
+        findViewById(R.id.btn_zoom_in).setOnClickListener(v -> map.getController().zoomIn());
+        findViewById(R.id.btn_zoom_out).setOnClickListener(v -> map.getController().zoomOut());
+
         conectarYObtenerSitios();
         configurarNavegacion();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (map != null) map.onResume();
+        if (currentTabId == R.id.nav_profile) mostrarPerfil();
+    }
+
+    private void gestionarVisibilidad(int navId) {
+        this.currentTabId = navId;
+        map.setVisibility(View.GONE);
+        searchCard.setVisibility(View.GONE);
+        favoriteLayout.setVisibility(View.GONE);
+        fragmentContainer.setVisibility(View.GONE);
+        findViewById(R.id.btn_zoom_in).setVisibility(View.GONE);
+        findViewById(R.id.btn_zoom_out).setVisibility(View.GONE);
+
+        if (navId == R.id.nav_home) {
+            map.setVisibility(View.VISIBLE);
+            searchCard.setVisibility(View.VISIBLE);
+            findViewById(R.id.btn_zoom_in).setVisibility(View.VISIBLE);
+            findViewById(R.id.btn_zoom_out).setVisibility(View.VISIBLE);
+        } else if (navId == R.id.nav_favorites) {
+            favoriteLayout.setVisibility(View.VISIBLE);
+        } else if (navId == R.id.nav_profile) {
+            fragmentContainer.setVisibility(View.VISIBLE);
+        }
     }
 
     private void configurarNavegacion() {
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            findViewById(R.id.favorite_layout).setVisibility(View.GONE);
-            fragmentContainer.setVisibility(View.GONE);
-            if (id == R.id.nav_home) { mostrarMapa(true); }
-            else if (id == R.id.nav_favorites) { mostrarMapa(false); findViewById(R.id.favorite_layout).setVisibility(View.VISIBLE); }
-            else if (id == R.id.nav_profile) { mostrarMapa(false); mostrarPerfil(); }
+            gestionarVisibilidad(item.getItemId());
+            if (item.getItemId() == R.id.nav_profile) mostrarPerfil();
             return true;
         });
     }
 
     private void mostrarPerfil() {
-        fragmentContainer.setVisibility(View.VISIBLE);
         fragmentContainer.removeAllViews();
-        // Corrección del inflate para el perfil también para evitar errores de contexto
         View v = LayoutInflater.from(this).inflate(R.layout.profile_layout, null);
-
         SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
         int uid = prefs.getInt("userId", -1);
 
@@ -134,40 +165,40 @@ public class MainActivity extends AppCompatActivity {
         RecyclerView rvMisCom = v.findViewById(R.id.recycler_comentarios_usuario);
 
         if (uid == -1) {
-            // ESTADO: INVITADO
             txtNom.setText("Modo Invitado");
-            txtMail.setText("Regístrate para ver tu actividad");
-
             if (btnLogin != null) {
                 btnLogin.setVisibility(View.VISIBLE);
-                btnLogin.setOnClickListener(view -> {
-                    Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-                    startActivity(intent);
-                });
+                btnLogin.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, LoginActivity.class)));
             }
             if (btnLogout != null) btnLogout.setVisibility(View.GONE);
-
         } else {
-            // ESTADO: LOGUEADO
-            String nombreCompleto = prefs.getString("userName", "") + " " + prefs.getString("userApellido", "");
-            txtNom.setText(nombreCompleto);
+            txtNom.setText(prefs.getString("userName", "") + " " + prefs.getString("userApellido", ""));
             txtMail.setText(prefs.getString("userEmail", ""));
-
-            if (btnLogin != null) btnLogin.setVisibility(View.GONE); // No puede volver a iniciar sesión
+            if (btnLogin != null) btnLogin.setVisibility(View.GONE);
             if (btnLogout != null) {
                 btnLogout.setVisibility(View.VISIBLE);
-                btnLogout.setOnClickListener(view -> {
-                    prefs.edit().clear().apply();
-                    recreate();
-                });
+                btnLogout.setOnClickListener(view -> { prefs.edit().clear().apply(); mostrarPerfil(); });
             }
 
-            // Cargar historial
             if (rvMisCom != null) {
                 rvMisCom.setLayoutManager(new LinearLayoutManager(this));
+                // SOLUCIÓN AL ERROR DE LISTENER (CLASE ANÓNIMA COMPLETA)
                 dbConnector.obtenerComentariosUsuario(uid, new DatabaseConnector.CommentListener() {
                     @Override public void onCommentsLoaded(List<Comentarios> list) {
-                        runOnUiThread(() -> rvMisCom.setAdapter(new ComentarioAdapter(list)));
+                        runOnUiThread(() -> rvMisCom.setAdapter(new ComentarioAdapter(list, c -> {
+                            // Diálogo para confirmar borrado
+                            new android.app.AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("Borrar comentario")
+                                    .setMessage("¿Estás seguro?")
+                                    .setPositiveButton("Sí", (dialog, which) -> {
+                                        dbConnector.eliminarComentario(c.getId(), new DatabaseConnector.CommentListener() {
+                                            @Override public void onCommentAdded(boolean exito) { runOnUiThread(() -> mostrarPerfil()); }
+                                            @Override public void onCommentsLoaded(List<Comentarios> l) {}
+                                            @Override public void onError(String m) {}
+                                        });
+                                    })
+                                    .setNegativeButton("No", null).show();
+                        })));
                     }
                     @Override public void onCommentAdded(boolean e) {}
                     @Override public void onError(String m) {}
@@ -181,27 +212,37 @@ public class MainActivity extends AppCompatActivity {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         View view = getLayoutInflater().inflate(R.layout.detalle_layout, null);
         ((TextView)view.findViewById(R.id.detalle_titulo)).setText(s.getNombre());
-        ((TextView)view.findViewById(R.id.detalle_descripcion)).setText(s.getDescripcion());
         ((TextView)view.findViewById(R.id.detalle_categoria)).setText("Categoría: " + s.getTipo());
         Glide.with(this).load(s.getUrlImagen()).into((ImageView)view.findViewById(R.id.detalle_imagen));
 
-        view.findViewById(R.id.btn_comentario).setOnClickListener(v -> {
-            SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
-            int userId = prefs.getInt("userId", -1);
-            dialog.dismiss();
-
-            if (userId == -1) {
-                Toast.makeText(MainActivity.this, "Debes estar registrado para comentar", Toast.LENGTH_SHORT).show();
-                startActivity(new Intent(MainActivity.this, LoginActivity.class));
-            } else {
-                abrirSocial(s);
-            }
+        ImageButton btnFav = view.findViewById(R.id.btn_favorito);
+        if (listaFavoritos.contains(s)) btnFav.setImageResource(R.drawable.favorito);
+        btnFav.setOnClickListener(v -> {
+            if (!listaFavoritos.contains(s)) { listaFavoritos.add(s); btnFav.setImageResource(R.drawable.favorito); }
+            else { listaFavoritos.remove(s); btnFav.setImageResource(R.drawable.estrella); }
+            favAdapter.notifyDataSetChanged();
         });
 
-        view.findViewById(R.id.btn_navegar).setOnClickListener(v -> {
-            GeoPoint d = new GeoPoint(s.getLatitud(), s.getLongitud());
-            GeoPoint o = (puntoManual != null) ? puntoManual : (myLocationOverlay.getMyLocation() != null ? myLocationOverlay.getMyLocation() : (GeoPoint)map.getMapCenter());
-            trazarRuta(o, d); dialog.dismiss();
+        MaterialButton btnNavegar = view.findViewById(R.id.btn_navegar);
+        if (rutaActual != null && sitioEnNavegacion != null && sitioEnNavegacion.getId() == s.getId()) btnNavegar.setText("Dejar de navegar");
+        else btnNavegar.setText("Navegar");
+
+        btnNavegar.setOnClickListener(v -> {
+            if (rutaActual != null && sitioEnNavegacion != null && sitioEnNavegacion.getId() == s.getId()) detenerNavegacion();
+            else {
+                GeoPoint d = new GeoPoint(s.getLatitud(), s.getLongitud());
+                GeoPoint o = (puntoManual != null) ? puntoManual : (myLocationOverlay.getMyLocation() != null ? myLocationOverlay.getMyLocation() : (GeoPoint)map.getMapCenter());
+                trazarRuta(o, d, s);
+            }
+            dialog.dismiss();
+        });
+
+        view.findViewById(R.id.btn_comentario).setOnClickListener(v -> {
+            if (getSharedPreferences("UserPrefs", MODE_PRIVATE).getInt("userId", -1) == -1) {
+                Toast.makeText(this, "Regístrate para comentar", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, LoginActivity.class));
+            } else { abrirSocial(s); }
+            dialog.dismiss();
         });
         dialog.setContentView(view); dialog.show();
     }
@@ -214,30 +255,58 @@ public class MainActivity extends AppCompatActivity {
 
         dbConnector.obtenerComentariosSitio(s.getId(), new DatabaseConnector.CommentListener() {
             @Override public void onCommentsLoaded(List<Comentarios> list) {
-                runOnUiThread(() -> rv.setAdapter(new ComentarioAdapter(list)));
+                runOnUiThread(() -> rv.setAdapter(new ComentarioAdapter(list, null)));
             }
             @Override public void onCommentAdded(boolean e) {}
             @Override public void onError(String m) {}
         });
 
         v.findViewById(R.id.btn_enviar).setOnClickListener(view -> {
-            SharedPreferences prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE);
-            int uid = prefs.getInt("userId", -1);
+            int uid = getSharedPreferences("UserPrefs", MODE_PRIVATE).getInt("userId", -1);
             String txt = ((EditText)v.findViewById(R.id.et_nuevo_comentario)).getText().toString().trim();
             if(!txt.isEmpty()){
                 dbConnector.insertarComentario(uid, s.getId(), txt, new DatabaseConnector.CommentListener() {
                     @Override public void onCommentAdded(boolean e) {
-                        runOnUiThread(() -> {
-                            Toast.makeText(MainActivity.this, "Enviado", Toast.LENGTH_SHORT).show();
-                            socialDialog.dismiss();
-                        });
+                        runOnUiThread(() -> { Toast.makeText(MainActivity.this, "Publicado", Toast.LENGTH_SHORT).show(); socialDialog.dismiss(); });
                     }
                     @Override public void onCommentsLoaded(List<Comentarios> l) {}
-                    @Override public void onError(String m) { runOnUiThread(() -> Toast.makeText(MainActivity.this, "Error: "+m, Toast.LENGTH_SHORT).show()); }
+                    @Override public void onError(String m) {}
                 });
             }
         });
         socialDialog.setContentView(v); socialDialog.show();
+    }
+
+    private void conectarYObtenerSitios() {
+        dbConnector.ejecutarConsulta(new DatabaseConnector.DatabaseListener() {
+            @Override public void onSitioEncontrado(int id, String n, double la, double lo, String d, String u, String t) {
+                Sitio s = new Sitio(n, d, u, t); s.setLatitud(la); s.setLongitud(lo); s.setId(id);
+                listaSitiosCompleta.add(s);
+                new Handler(Looper.getMainLooper()).post(() -> crearMarcador(s));
+            }
+            @Override public void onError(String m) {}
+            @Override public void onFinalizado() { runOnUiThread(() -> findViewById(R.id.loadingLayout).setVisibility(View.GONE)); }
+        });
+    }
+
+    private void trazarRuta(GeoPoint o, GeoPoint d, Sitio s) {
+        new Thread(() -> {
+            OSRMRoadManager rm = new OSRMRoadManager(this, getPackageName());
+            ArrayList<GeoPoint> w = new ArrayList<>(); w.add(o); w.add(d);
+            Road rd = rm.getRoad(w);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (rd.mStatus == Road.STATUS_OK) {
+                    if (rutaActual != null) map.getOverlays().remove(rutaActual);
+                    rutaActual = RoadManager.buildRoadOverlay(rd);
+                    rutaActual.getOutlinePaint().setColor(Color.BLUE); rutaActual.getOutlinePaint().setStrokeWidth(12f);
+                    map.getOverlays().add(rutaActual); sitioEnNavegacion = s; map.invalidate();
+                }
+            });
+        }).start();
+    }
+
+    private void detenerNavegacion() {
+        if (rutaActual != null) { map.getOverlays().remove(rutaActual); rutaActual = null; sitioEnNavegacion = null; map.invalidate(); }
     }
 
     private void crearMarcador(Sitio s) {
@@ -247,19 +316,6 @@ public class MainActivity extends AppCompatActivity {
         map.getOverlays().add(m);
     }
 
-    private void conectarYObtenerSitios() {
-        findViewById(R.id.loadingLayout).setVisibility(View.VISIBLE);
-        dbConnector.ejecutarConsulta(new DatabaseConnector.DatabaseListener() {
-            @Override public void onSitioEncontrado(int id, String n, double la, double lo, String d, String u, String t) {
-                Sitio s = new Sitio(n, d, u, t); s.setLatitud(la); s.setLongitud(lo); s.setId(id);
-                listaSitiosCompleta.add(s);
-                new Handler(Looper.getMainLooper()).post(() -> crearMarcador(s));
-            }
-            @Override public void onError(String m) {}
-            @Override public void onFinalizado() { new Handler(Looper.getMainLooper()).post(() -> findViewById(R.id.loadingLayout).setVisibility(View.GONE)); }
-        });
-    }
-
     private void filtrarSitios(String t) {
         String q = t.toLowerCase(); map.getOverlays().clear();
         if (myLocationOverlay != null) map.getOverlays().add(myLocationOverlay);
@@ -267,32 +323,13 @@ public class MainActivity extends AppCompatActivity {
         if (rutaActual != null) map.getOverlays().add(rutaActual);
         configurarPulsacionLarga();
         for (Sitio s : listaSitiosCompleta) {
-            if (s.getNombre().toLowerCase().contains(q) || (s.getTipo() != null && s.getTipo().toLowerCase().contains(q))) {
-                crearMarcador(s);
-            }
+            if (s.getNombre().toLowerCase().contains(q) || (s.getTipo() != null && s.getTipo().toLowerCase().contains(q))) crearMarcador(s);
         }
         map.invalidate();
     }
 
-    private void trazarRuta(GeoPoint o, GeoPoint d) {
-        new Thread(() -> {
-            OSRMRoadManager rm = new OSRMRoadManager(this, getPackageName());
-            rm.setMean(OSRMRoadManager.MEAN_BY_FOOT);
-            ArrayList<GeoPoint> w = new ArrayList<>(); w.add(o); w.add(d);
-            Road rd = rm.getRoad(w);
-            new Handler(Looper.getMainLooper()).post(() -> {
-                if (rd.mStatus == Road.STATUS_OK) {
-                    if (rutaActual != null) map.getOverlays().remove(rutaActual);
-                    rutaActual = RoadManager.buildRoadOverlay(rd);
-                    rutaActual.getOutlinePaint().setColor(Color.BLUE); rutaActual.getOutlinePaint().setStrokeWidth(12f);
-                    map.getOverlays().add(rutaActual); map.invalidate();
-                }
-            });
-        }).start();
-    }
-
     private void configurarPulsacionLarga() {
-        MapEventsReceiver mReceive = new MapEventsReceiver() {
+        map.getOverlays().add(new MapEventsOverlay(new MapEventsReceiver() {
             @Override public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
             @Override public boolean longPressHelper(GeoPoint p) {
                 puntoManual = p;
@@ -302,12 +339,9 @@ public class MainActivity extends AppCompatActivity {
                 map.getOverlays().add(marcadorManual); map.invalidate();
                 return true;
             }
-        };
-        map.getOverlays().add(new MapEventsOverlay(mReceive));
+        }));
     }
 
-    private void mostrarMapa(boolean v) { int vis = v ? View.VISIBLE : View.GONE; map.setVisibility(vis); findViewById(R.id.search_card).setVisibility(vis); }
-    private void solicitarPermisos() { if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1); } }
-    @Override protected void onResume() { super.onResume(); if (map != null) map.onResume(); }
+    private void solicitarPermisos() { if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1); }
     @Override protected void onPause() { super.onPause(); if (map != null) map.onPause(); }
 }

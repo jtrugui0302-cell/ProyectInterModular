@@ -2,4 +2,11 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="lucena_primary">#556B2F</color>
+    <color name="lucena_primary_dark">#3E4F22</color>
+    <color name="lucena_secondary">#DAA520</color>
+    <color name="lucena_background">#FDFCF0</color>
+    <color name="lucena_text_main">#2F2F2F</color>
+
 </resources>

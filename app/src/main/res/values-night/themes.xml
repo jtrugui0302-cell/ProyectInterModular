@@ -3,5 +3,15 @@
     <style name="Base.Theme.ProyectoAplicaciónTurismoLocal" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">@color/lucena_primary</item>
+        <item name="colorPrimaryVariant">@color/lucena_primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <item name="colorSecondary">@color/lucena_secondary</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <item name="android:windowBackground">@color/lucena_background</item>
+
+        <item name="android:statusBarColor">@color/lucena_primary</item>
     </style>
 </resources>

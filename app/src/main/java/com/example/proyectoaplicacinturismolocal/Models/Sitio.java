@@ -1,7 +1,7 @@
 package com.example.proyectoaplicacinturismolocal.Models;
 
 public class Sitio {
-    private int id; // Nuevo campo para el ID de la base de datos
+    private int id;
     private String nombre, descripcion, urlImagen, tipo;
     private double latitud, longitud;
 
@@ -12,11 +12,8 @@ public class Sitio {
         this.tipo = tipo;
     }
 
-    // MÉTODOS QUE FALTABAN
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
-
-    // Resto de tus getters y setters existentes...
     public String getNombre() { return nombre; }
     public String getDescripcion() { return descripcion; }
     public String getUrlImagen() { return urlImagen; }

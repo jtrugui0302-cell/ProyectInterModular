@@ -60,7 +60,6 @@ public class DatabaseConnector {
         }).start();
     }
 
-    // AÑADIDO: Método para que el Login funcione correctamente
     public void registrarUsuario(String nom, String ape, int ed, String gm, String tel, String pw, RegisterListener listener) {
         new Thread(() -> {
             try (Connection con = DriverManager.getConnection(URL, USER, PASS)) {
@@ -77,6 +76,7 @@ public class DatabaseConnector {
     public void insertarComentario(int idUser, int idSitio, String texto, CommentListener listener) {
         new Thread(() -> {
             try (Connection con = DriverManager.getConnection(URL, USER, PASS)) {
+                // Columnas reales: contenidoComentario, usuario_id, sitio_id
                 String sql = "INSERT INTO comentarios (contenidoComentario, usuario_id, sitio_id, valoraciones) VALUES (?, ?, ?, 0)";
                 PreparedStatement ps = con.prepareStatement(sql);
                 ps.setString(1, texto); ps.setInt(2, idUser); ps.setInt(3, idSitio);
@@ -90,13 +90,20 @@ public class DatabaseConnector {
         new Thread(() -> {
             List<Comentarios> lista = new ArrayList<>();
             try (Connection con = DriverManager.getConnection(URL, USER, PASS)) {
-                String sql = "SELECT u.nombre, c.contenidoComentario, c.fechaSubida FROM comentarios c " +
+                // Seleccionamos c.id para el nuevo constructor de 4 argumentos
+                String sql = "SELECT c.id, u.nombre, c.contenidoComentario, c.fechaSubida FROM comentarios c " +
                         "JOIN usuarios u ON c.usuario_id = u.id WHERE c.sitio_id = ? ORDER BY c.fechaSubida DESC";
                 PreparedStatement ps = con.prepareStatement(sql);
                 ps.setInt(1, idSitio);
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
-                    lista.add(new Comentarios(rs.getString("nombre"), rs.getString("contenidoComentario"), rs.getString("fechaSubida")));
+                    // Pasamos el ID recuperado al constructor
+                    lista.add(new Comentarios(
+                            rs.getInt("id"),
+                            rs.getString("nombre"),
+                            rs.getString("contenidoComentario"),
+                            rs.getString("fechaSubida")
+                    ));
                 }
                 listener.onCommentsLoaded(lista);
             } catch (Exception e) { listener.onError(e.getMessage()); }
@@ -107,15 +114,34 @@ public class DatabaseConnector {
         new Thread(() -> {
             List<Comentarios> lista = new ArrayList<>();
             try (Connection con = DriverManager.getConnection(URL, USER, PASS)) {
-                String sql = "SELECT s.nombre, c.contenidoComentario, c.fechaSubida FROM comentarios c " +
+                // Seleccionamos c.id para el nuevo constructor de 4 argumentos
+                String sql = "SELECT c.id, s.nombre, c.contenidoComentario, c.fechaSubida FROM comentarios c " +
                         "JOIN sitios s ON c.sitio_id = s.id WHERE c.usuario_id = ? ORDER BY c.fechaSubida DESC";
                 PreparedStatement ps = con.prepareStatement(sql);
                 ps.setInt(1, idUser);
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
-                    lista.add(new Comentarios(rs.getString("nombre"), rs.getString("contenidoComentario"), rs.getString("fechaSubida")));
+                    // Pasamos el ID recuperado al constructor
+                    lista.add(new Comentarios(
+                            rs.getInt("id"),
+                            rs.getString("nombre"),
+                            rs.getString("contenidoComentario"),
+                            rs.getString("fechaSubida")
+                    ));
                 }
                 listener.onCommentsLoaded(lista);
+            } catch (Exception e) { listener.onError(e.getMessage()); }
+        }).start();
+    }
+
+    public void eliminarComentario(int idComentario, CommentListener listener) {
+        new Thread(() -> {
+            try (Connection con = DriverManager.getConnection(URL, USER, PASS)) {
+                String sql = "DELETE FROM comentarios WHERE id = ?";
+                PreparedStatement ps = con.prepareStatement(sql);
+                ps.setInt(1, idComentario);
+                ps.executeUpdate();
+                listener.onCommentAdded(true);
             } catch (Exception e) { listener.onError(e.getMessage()); }
         }).start();
     }
